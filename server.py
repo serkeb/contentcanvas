@@ -885,9 +885,13 @@ def scrape_profile():
     amount   = int(data.get("amount", 10))
     sort_by  = data.get("sort_by", "recent")   # "recent" | "viral" | "liked"
 
-    # Fetch exactly the user-selected amount for all sort types.
-    # For viral/liked we sort by views/likes after fetching.
-    fetch_amount = amount
+    # For viral/liked we need a large pool to sort from — fetching only
+    # `amount` recents would miss older high-performing videos entirely.
+    # We fetch up to 150 videos and then sort+trim to the requested amount.
+    if sort_by in ("viral", "liked"):
+        fetch_amount = max(150, amount * 10)
+    else:
+        fetch_amount = amount
 
     if platform not in ("tiktok", "instagram"):
         return jsonify({"error": "Plataforma no soportada. Usá 'tiktok' o 'instagram'"}), 400
@@ -1097,7 +1101,47 @@ def scrape_profile():
                         "thumbnail":   thumbnail or "",
                     })
 
-                # Sort and trim to requested amount
+                # Sort and trim to requested amount.
+                # If extract_flat returned no view/like counts (all zeros),
+                # do a full metadata fetch on a sample to get real numbers.
+                if sort_by in ("viral", "liked"):
+                    has_counts = sum(1 for v in videos if v["views"] > 0 or v["likes"] > 0)
+                    if has_counts < len(videos) * 0.3 and videos:
+                        # Less than 30% have counts — flat extract didn't include stats.
+                        # Re-fetch without extract_flat to get real metadata.
+                        ydl_full_opts = {
+                            "quiet": True,
+                            "no_warnings": True,
+                            "skip_download": True,
+                            "playlistend": fetch_amount,
+                        }
+                        try:
+                            with yt_dlp.YoutubeDL(ydl_full_opts) as ydl2:
+                                info2 = ydl2.extract_info(profile_url, download=False)
+                                if info2 and info2.get("entries"):
+                                    videos = []
+                                    for entry in info2["entries"]:
+                                        video_url = entry.get("webpage_url") or entry.get("url")
+                                        if not video_url:
+                                            continue
+                                        thumbnail = entry.get("thumbnail")
+                                        if not thumbnail and entry.get("thumbnails"):
+                                            thumbnail = entry["thumbnails"][-1].get("url")
+                                        videos.append({
+                                            "url":         video_url,
+                                            "title":       (entry.get("title") or "")[:120],
+                                            "description": (entry.get("description") or ""),
+                                            "views":       entry.get("view_count") or entry.get("views") or 0,
+                                            "likes":       entry.get("like_count") or entry.get("likes") or 0,
+                                            "comments":    entry.get("comment_count") or 0,
+                                            "saves":       entry.get("save_count") or 0,
+                                            "shares":      entry.get("repost_count") or 0,
+                                            "duration":    entry.get("duration") or 0,
+                                            "thumbnail":   thumbnail or "",
+                                        })
+                        except Exception:
+                            pass  # keep original flat results if full fetch fails
+
                 if sort_by == "viral":
                     videos.sort(key=lambda v: v["views"], reverse=True)
                 elif sort_by == "liked":
