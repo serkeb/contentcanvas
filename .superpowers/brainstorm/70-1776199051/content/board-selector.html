@@ -1,0 +1,113 @@
+<h2>¿Dónde va el selector de tableros?</h2>
+<p class="subtitle">Mirá las 3 opciones y elegí la que más te gusta.</p>
+
+<div class="cards">
+
+  <!-- Option A: Tab bar -->
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f172a; padding:0; border-radius:8px 8px 0 0; overflow:hidden;">
+      <!-- Simulated app shell -->
+      <div style="display:flex; height:220px; font-family:system-ui; font-size:11px;">
+        <!-- Left sidebar -->
+        <div style="width:52px; background:#1e293b; display:flex; flex-direction:column; align-items:center; padding:8px 0; gap:8px;">
+          <div style="width:32px;height:32px;border-radius:8px;background:#6366f130;display:flex;align-items:center;justify-content:center;font-size:14px;">＋</div>
+          <div style="width:32px;height:32px;border-radius:8px;background:#6366f130;display:flex;align-items:center;justify-content:center;font-size:14px;">🔗</div>
+          <div style="width:32px;height:32px;border-radius:8px;background:#6366f130;display:flex;align-items:center;justify-content:center;font-size:14px;">📄</div>
+        </div>
+        <!-- Main area -->
+        <div style="flex:1;display:flex;flex-direction:column;">
+          <!-- Tab bar at top -->
+          <div style="background:#1e293b; display:flex; align-items:flex-end; padding:0 8px; gap:2px; height:36px; flex-shrink:0;">
+            <div style="background:#0f172a; color:#6366f1; padding:6px 14px; border-radius:6px 6px 0 0; font-weight:700; font-size:10px; border:1px solid #6366f130; border-bottom:1px solid #0f172a;">📋 Cliente A</div>
+            <div style="background:#1e293b; color:#94a3b8; padding:6px 14px; border-radius:6px 6px 0 0; font-size:10px; cursor:pointer;">📋 Proyecto X</div>
+            <div style="background:#1e293b; color:#94a3b8; padding:6px 14px; border-radius:6px 6px 0 0; font-size:10px; cursor:pointer;">📋 Ideas</div>
+            <div style="color:#6366f1; padding:6px 10px; font-size:14px; cursor:pointer; align-self:center;">＋</div>
+          </div>
+          <!-- Canvas -->
+          <div style="flex:1; background:#0f172a; position:relative; overflow:hidden;">
+            <div style="position:absolute;top:20px;left:30px;background:#1e293b;border:1px solid #6366f130;border-radius:8px;padding:8px 12px;font-size:9px;color:#94a3b8;">🎵 Video transcript</div>
+            <div style="position:absolute;top:50px;left:120px;background:#1e293b;border:1px solid #6366f130;border-radius:8px;padding:8px 12px;font-size:9px;color:#94a3b8;">✦ Script node</div>
+            <div style="position:absolute;top:90px;left:60px;background:#1e293b;border:1px solid #6366f130;border-radius:8px;padding:8px 12px;font-size:9px;color:#94a3b8;">💡 Ideas</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A — Pestañas arriba</h3>
+      <p>Los tableros como tabs horizontales sobre el canvas. Muy familiar (como el browser). Fácil de cambiar entre boards de un click.</p>
+    </div>
+  </div>
+
+  <!-- Option B: Left panel -->
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f172a; padding:0; border-radius:8px 8px 0 0; overflow:hidden;">
+      <div style="display:flex; height:220px; font-family:system-ui; font-size:11px;">
+        <!-- Left sidebar + board panel -->
+        <div style="width:52px; background:#1e293b; display:flex; flex-direction:column; align-items:center; padding:8px 0; gap:8px;">
+          <div style="width:32px;height:32px;border-radius:8px;background:#6366f1;display:flex;align-items:center;justify-content:center;font-size:14px;">⊞</div>
+          <div style="width:32px;height:32px;border-radius:8px;background:#6366f130;display:flex;align-items:center;justify-content:center;font-size:14px;">🔗</div>
+        </div>
+        <!-- Board list panel -->
+        <div style="width:140px;background:#111827;border-right:1px solid #6366f115;display:flex;flex-direction:column;padding:8px;">
+          <div style="font-size:9px;font-weight:700;color:#6366f1;margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em;">Tableros</div>
+          <div style="background:#6366f115;border:1px solid #6366f140;border-radius:6px;padding:6px 8px;font-size:10px;color:#6366f1;font-weight:600;margin-bottom:4px;">📋 Cliente A</div>
+          <div style="padding:6px 8px;font-size:10px;color:#64748b;cursor:pointer;border-radius:6px;">📋 Proyecto X</div>
+          <div style="padding:6px 8px;font-size:10px;color:#64748b;cursor:pointer;border-radius:6px;">📋 Ideas</div>
+          <div style="margin-top:auto;padding:6px 8px;font-size:10px;color:#6366f1;cursor:pointer;text-align:center;border:1px dashed #6366f130;border-radius:6px;">＋ Nuevo</div>
+        </div>
+        <!-- Canvas -->
+        <div style="flex:1;background:#0f172a;position:relative;overflow:hidden;">
+          <div style="position:absolute;top:20px;left:20px;background:#1e293b;border:1px solid #6366f130;border-radius:8px;padding:6px 10px;font-size:9px;color:#94a3b8;">🎵 Video transcript</div>
+          <div style="position:absolute;top:55px;left:80px;background:#1e293b;border:1px solid #6366f130;border-radius:8px;padding:6px 10px;font-size:9px;color:#94a3b8;">✦ Script</div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B — Panel lateral</h3>
+      <p>Lista de boards en un panel lateral junto al toolbar. Más espacio para nombres largos, pero ocupa ancho del canvas permanentemente.</p>
+    </div>
+  </div>
+
+  <!-- Option C: Floating dropdown -->
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#0f172a; padding:0; border-radius:8px 8px 0 0; overflow:hidden;">
+      <div style="display:flex; height:220px; font-family:system-ui; font-size:11px;">
+        <!-- Left sidebar -->
+        <div style="width:52px; background:#1e293b; display:flex; flex-direction:column; align-items:center; padding:8px 0; gap:8px;">
+          <div style="width:32px;height:32px;border-radius:8px;background:#6366f130;display:flex;align-items:center;justify-content:center;font-size:14px;">＋</div>
+          <div style="width:32px;height:32px;border-radius:8px;background:#6366f130;display:flex;align-items:center;justify-content:center;font-size:14px;">🔗</div>
+        </div>
+        <!-- Main area with top bar -->
+        <div style="flex:1;display:flex;flex-direction:column;">
+          <!-- Top bar with board selector -->
+          <div style="background:#111827;border-bottom:1px solid #6366f115;height:40px;display:flex;align-items:center;padding:0 12px;gap:8px;flex-shrink:0;">
+            <!-- Board selector dropdown -->
+            <div style="background:#1e293b;border:1px solid #6366f140;border-radius:8px;padding:5px 10px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <span style="font-size:10px;color:#6366f1;font-weight:700;">📋 Cliente A</span>
+              <span style="color:#6366f1;font-size:10px;">▾</span>
+            </div>
+            <!-- Dropdown open state shown below canvas -->
+            <div style="font-size:9px;color:#475569;margin-left:4px;">← click para cambiar tablero</div>
+          </div>
+          <!-- Canvas -->
+          <div style="flex:1;background:#0f172a;position:relative;overflow:hidden;">
+            <!-- Dropdown popup overlaid -->
+            <div style="position:absolute;top:2px;left:10px;background:#1e293b;border:1px solid #6366f130;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.5);width:160px;padding:6px;z-index:10;">
+              <div style="background:#6366f115;border-radius:5px;padding:5px 8px;font-size:9px;color:#6366f1;font-weight:600;margin-bottom:3px;">📋 Cliente A ✓</div>
+              <div style="padding:5px 8px;font-size:9px;color:#64748b;border-radius:5px;">📋 Proyecto X</div>
+              <div style="padding:5px 8px;font-size:9px;color:#64748b;border-radius:5px;">📋 Ideas</div>
+              <div style="border-top:1px solid #6366f115;margin-top:4px;padding:5px 8px;font-size:9px;color:#6366f1;">＋ Nuevo tablero</div>
+            </div>
+            <div style="position:absolute;top:90px;left:40px;background:#1e293b;border:1px solid #6366f130;border-radius:8px;padding:6px 10px;font-size:9px;color:#94a3b8;">🎵 Video</div>
+            <div style="position:absolute;top:110px;left:130px;background:#1e293b;border:1px solid #6366f130;border-radius:8px;padding:6px 10px;font-size:9px;color:#94a3b8;">✦ Script</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>C — Dropdown en topbar</h3>
+      <p>Un selector compacto en la barra superior. Mínimo footprint, el canvas tiene todo el espacio. Abre dropdown al click.</p>
+    </div>
+  </div>
+
+</div>

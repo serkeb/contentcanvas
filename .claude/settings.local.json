@@ -1,0 +1,52 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Skill(superpowers:brainstorming)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Skill(superpowers:writing-plans)",
+      "Bash(pip install:*)",
+      "Bash(python:*)",
+      "Bash(npm run dev:*)",
+      "Bash(taskkill:*)",
+      "Bash(set:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 2; Write-Host ''All node processes killed''\")",
+      "Bash(timeout:*)",
+      "Skill(superpowers:executing-plans)",
+      "Skill(superpowers:finishing-a-development-branch)",
+      "Bash(find:*)",
+      "Bash(npm install:*)",
+      "Bash(node:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(npm cache clean:*)",
+      "Bash(npm view:*)",
+      "mcp__supabase__list_tables",
+      "mcp__supabase__apply_migration",
+      "mcp__supabase__generate_typescript_types",
+      "mcp__supabase__list_migrations",
+      "Bash(npm run *)",
+      "Bash(curl -s http://localhost:5175)",
+      "Bash(curl -s http://localhost:5173)",
+      "Bash(curl -I \"https://julbaobendgltyrwhir.supabase.co\")",
+      "Bash(curl -s \"https://julbaobendgltyrwhir.supabase.co/rest/v1/\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1aWxiYW9iZW5kZ2x0eXJ3aGlyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyODYyMzYsImV4cCI6MjA5MTg2MjIzNn0.-OuCuwnbxBbG5lpati2mEf39DM4v45Wio6uBtdXVk3w\")",
+      "mcp__supabase__get_project_url",
+      "Bash(pkill -f \"vite|node.*dev\")",
+      "Bash(curl -s \"http://localhost:5173/src/test-env.js\")",
+      "Bash(start http://localhost:5173)",
+      "mcp__supabase__get_publishable_keys",
+      "mcp__supabase__execute_sql",
+      "Bash(curl -s \"http://localhost:5173\")",
+      "Bash(curl -s \"http://localhost:5173/src/index.css\")",
+      "Bash(grep *)",
+      "mcp__supabase__get_advisors",
+      "Bash(git init *)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
+}
