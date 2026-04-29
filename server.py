@@ -45,96 +45,54 @@ CORS(app,
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 )
 
-# ── Instagram: session usando sessionid de .env ───────────────────────────────
-_ig_session = None
+# ── Instagram: instagrapi client cache (keyed by username) ────────────────────
+_ig_clients = {}  # { ig_username: instagrapi.Client }
 
-def get_ig_session():
+def get_ig_client(ig_user: str, ig_pass: str):
     """
-    Construye un requests.Session autenticado con Instagram.
-    Prioridad:
-      1. INSTAGRAM_SESSION_ID en .env  (recomendado — copiarlo de DevTools)
-      2. browser-cookie3 desde Chrome
-      3. browser-cookie3 desde Firefox
-      4. instagram_cookies.txt (Netscape format)
+    Returns an authenticated instagrapi Client for the given credentials.
+    Reuses cached client if already logged in for this username.
+    Raises RuntimeError with a user-friendly message on failure.
     """
-    global _ig_session
-    if _ig_session is not None:
-        return _ig_session
+    global _ig_clients
+    if ig_user in _ig_clients:
+        return _ig_clients[ig_user]
 
-    import requests
-
-    session = requests.Session()
-    session.headers.update({
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        ),
-        "x-ig-app-id": "936619743392459",
-        "Accept": "*/*",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Origin": "https://www.instagram.com",
-        "Referer": "https://www.instagram.com/",
-    })
-
-    # 1. sessionid desde .env (más confiable)
-    session_id = os.getenv("INSTAGRAM_SESSION_ID", "").strip()
-    if session_id:
-        session.cookies.set("sessionid", session_id, domain=".instagram.com", path="/")
-        # Obtener csrftoken haciendo una petición inicial
-        try:
-            r = session.get("https://www.instagram.com/", timeout=10)
-            # csrftoken viene en las cookies de respuesta
-        except Exception:
-            pass
-        _ig_session = session
-        return session
-
-    # 2. browser-cookie3 Chrome
     try:
-        import browser_cookie3
-        cj = browser_cookie3.chrome(domain_name=".instagram.com")
-        session.cookies.update(cj)
-        if session.cookies.get("sessionid"):
-            _ig_session = session
-            return session
-    except Exception:
-        pass
+        from instagrapi import Client
+        from instagrapi.exceptions import (
+            BadPassword, InvalidUser, TwoFactorRequired,
+            ChallengeRequired, LoginRequired,
+        )
+    except ImportError:
+        raise RuntimeError("instagrapi no está instalado. Contactá al administrador.")
 
-    # 3. browser-cookie3 Firefox
+    cl = Client()
+    cl.delay_range = [2, 5]  # polite delay between requests
+
     try:
-        import browser_cookie3
-        cj = browser_cookie3.firefox(domain_name=".instagram.com")
-        session.cookies.update(cj)
-        if session.cookies.get("sessionid"):
-            _ig_session = session
-            return session
-    except Exception:
-        pass
+        cl.login(ig_user, ig_pass)
+    except BadPassword:
+        raise RuntimeError("Contraseña incorrecta. Verificá tus credenciales de Instagram.")
+    except InvalidUser:
+        raise RuntimeError(f"La cuenta @{ig_user} no existe en Instagram.")
+    except TwoFactorRequired:
+        raise RuntimeError(
+            "Tu cuenta tiene verificación en dos pasos activa. "
+            "Usá una cuenta secundaria sin 2FA para el scraping."
+        )
+    except ChallengeRequired:
+        raise RuntimeError(
+            "Instagram detectó actividad inusual y pidió verificación. "
+            "Intentá con otra cuenta o esperá unos minutos."
+        )
+    except LoginRequired:
+        raise RuntimeError("No se pudo iniciar sesión. Verificá usuario y contraseña.")
+    except Exception as e:
+        raise RuntimeError(f"Error al conectar con Instagram: {str(e)}")
 
-    # 4. instagram_cookies.txt (Netscape format)
-    cookies_file = os.path.join(os.path.dirname(__file__), "instagram_cookies.txt")
-    if os.path.exists(cookies_file):
-        import http.cookiejar
-        cj = http.cookiejar.MozillaCookieJar(cookies_file)
-        try:
-            cj.load(ignore_discard=True, ignore_expires=True)
-            session.cookies.update(cj)
-            if session.cookies.get("sessionid"):
-                _ig_session = session
-                return session
-        except Exception:
-            pass
-
-    raise RuntimeError(
-        "No se encontró sesión de Instagram.\n\n"
-        "Solución rápida:\n"
-        "1. Abrí instagram.com en Chrome con tu sesión iniciada\n"
-        "2. F12 → Application → Cookies → https://www.instagram.com\n"
-        "3. Copiá el valor de la cookie 'sessionid'\n"
-        "4. Pegalo en el archivo .env como: INSTAGRAM_SESSION_ID=el_valor\n"
-        "5. Reiniciá el servidor"
-    )
+    _ig_clients[ig_user] = cl
+    return cl
 
 LLM_MODEL = "gpt-5.2-2025-12-11"
 
@@ -884,6 +842,8 @@ def scrape_profile():
     username = data.get("username", "").strip()
     amount   = int(data.get("amount", 10))
     sort_by  = data.get("sort_by", "recent")   # "recent" | "viral" | "liked"
+    ig_user  = data.get("ig_user", "").strip()
+    ig_pass  = data.get("ig_pass", "").strip()
 
     # For viral/liked we need a large pool to sort from — fetching only
     # `amount` recents would miss older high-performing videos entirely.
@@ -903,130 +863,89 @@ def scrape_profile():
     username = username.lstrip("@")
 
     try:
-        # ── INSTAGRAM: requests + browser cookies → Instagram internal API ───────
+        # ── INSTAGRAM: instagrapi ─────────────────────────────────────────────
         if platform == "instagram":
+            if not ig_user or not ig_pass:
+                return jsonify({
+                    "error": "Ingresá tu usuario y contraseña de Instagram para continuar.",
+                    "error_code": "IG_NO_CREDENTIALS",
+                }), 400
+
             try:
-                session = get_ig_session()
+                cl = get_ig_client(ig_user, ig_pass)
             except RuntimeError as e:
-                return jsonify({"error": str(e)}), 500
+                # Clear cached client so next attempt re-authenticates
+                _ig_clients.pop(ig_user, None)
+                return jsonify({"error": str(e)}), 401
 
-            session.headers["Referer"] = f"https://www.instagram.com/{username}/"
-
-            # 1. Get profile info + user_id
             try:
-                r = session.get(
-                    "https://www.instagram.com/api/v1/users/web_profile_info/",
-                    params={"username": username},
-                    timeout=15,
-                )
+                user_info = cl.user_info_by_username(username)
             except Exception as e:
-                return jsonify({"error": f"Error de red: {str(e)}"}), 500
+                err = str(e).lower()
+                if "not found" in err or "user_not_found" in err:
+                    return jsonify({"error": f"No se encontró el perfil @{username}."}), 404
+                return jsonify({"error": f"Error al obtener el perfil: {str(e)}"}), 400
 
-            if r.status_code == 404:
-                return jsonify({"error": f"No se encontró el perfil @{username}."}), 404
-            if r.status_code == 401:
-                global _ig_session
-                _ig_session = None
-                return jsonify({"error": "Sesión de Instagram expirada. Abrí Chrome con tu Instagram y reiniciá el servidor."}), 401
-            if r.status_code != 200:
-                return jsonify({"error": f"Instagram devolvió HTTP {r.status_code}. Intentá de nuevo."}), r.status_code
-
-            try:
-                user = r.json()["data"]["user"]
-            except Exception:
-                return jsonify({"error": "Respuesta inesperada de Instagram. Intentá de nuevo."}), 500
-
-            user_id = user.get("id") or user.get("pk")
             profile_data = {
-                "avatar":    user.get("profile_pic_url_hd") or user.get("profile_pic_url") or "",
-                "name":      user.get("full_name") or f"@{username}",
-                "username":  user.get("username") or username,
-                "bio":       user.get("biography") or "",
-                "followers": (user.get("edge_followed_by") or {}).get("count") or user.get("follower_count") or 0,
-                "following": (user.get("edge_follow") or {}).get("count") or user.get("following_count") or 0,
+                "avatar":    str(user_info.profile_pic_url or ""),
+                "name":      user_info.full_name or f"@{username}",
+                "username":  user_info.username or username,
+                "bio":       user_info.biography or "",
+                "followers": user_info.follower_count or 0,
+                "following": user_info.following_count or 0,
             }
 
-            # 2. Get Reels/clips for that user
+            # Fetch reels — instagrapi clips endpoint, falls back to user_medias
+            pool = fetch_amount if sort_by in ("viral", "liked") else amount
             videos = []
             try:
-                csrftoken = session.cookies.get("csrftoken") or session.cookies.get("csrf_token") or ""
-                r2 = session.post(
-                    "https://www.instagram.com/api/v1/clips/user/",
-                    data={
-                        "target_user_id": user_id,
-                        "page_size": amount,
-                        "include_feed_video": "true",
-                    },
-                    headers={
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "X-CSRFToken": csrftoken,
-                    },
-                    timeout=15,
-                )
-
-                if r2.status_code == 200:
-                    items = r2.json().get("items", [])
-                    for item in items[:amount]:
-                        media = item.get("media") or {}
-                        code = media.get("code") or ""
-                        if not code:
-                            continue
-                        post_url = f"https://www.instagram.com/reel/{code}/"
-                        # Thumbnail: pick best available candidate
-                        thumbnail = ""
-                        candidates = (media.get("image_versions2") or {}).get("candidates") or []
-                        if candidates:
-                            # Pick a medium one (avoid huge originals)
-                            mid = len(candidates) // 2
-                            thumbnail = candidates[mid].get("url") or candidates[0].get("url") or ""
-                        caption_obj = media.get("caption") or {}
-                        caption = (caption_obj.get("text") or "")[:120] if isinstance(caption_obj, dict) else ""
-                        videos.append({
-                            "url":       post_url,
-                            "title":     caption,
-                            "views":     media.get("play_count") or media.get("view_count") or 0,
-                            "likes":     media.get("like_count") or 0,
-                            "thumbnail": thumbnail,
-                        })
-            except Exception as e:
-                # clips endpoint failed — fall back to timeline media
+                clips = cl.user_clips(user_info.pk, amount=pool)
+                for media in clips:
+                    url = f"https://www.instagram.com/reel/{media.code}/"
+                    thumb = str(media.thumbnail_url or "")
+                    caption = (media.caption_text or "")[:120]
+                    videos.append({
+                        "url":      url,
+                        "title":    caption,
+                        "views":    media.play_count or media.view_count or 0,
+                        "likes":    media.like_count or 0,
+                        "comments": media.comment_count or 0,
+                        "duration": media.video_duration or 0,
+                        "thumbnail": thumb,
+                    })
+            except Exception:
                 pass
 
-            # Fallback: timeline posts if clips API returned nothing
+            # Fallback: general user medias (videos only)
             if not videos:
                 try:
-                    r3 = session.get(
-                        f"https://www.instagram.com/api/v1/feed/user/{user_id}/",
-                        params={"count": amount},
-                        timeout=15,
-                    )
-                    if r3.status_code == 200:
-                        items = r3.json().get("items") or []
-                        for media in items:
-                            if media.get("media_type") != 2:  # 2 = video
-                                continue
-                            code = media.get("code") or ""
-                            if not code:
-                                continue
-                            post_url = f"https://www.instagram.com/reel/{code}/"
-                            candidates = (media.get("image_versions2") or {}).get("candidates") or []
-                            thumbnail = candidates[0].get("url") or "" if candidates else ""
-                            caption_obj = media.get("caption") or {}
-                            caption = (caption_obj.get("text") or "")[:120] if isinstance(caption_obj, dict) else ""
-                            videos.append({
-                                "url":       post_url,
-                                "title":     caption,
-                                "views":     media.get("play_count") or 0,
-                                "likes":     media.get("like_count") or 0,
-                                "thumbnail": thumbnail,
-                            })
-                            if len(videos) >= amount:
-                                break
+                    medias = cl.user_medias(user_info.pk, amount=pool)
+                    for media in medias:
+                        if media.media_type != 2:  # 2 = video/reel
+                            continue
+                        url = f"https://www.instagram.com/p/{media.code}/"
+                        thumb = str(media.thumbnail_url or "")
+                        caption = (media.caption_text or "")[:120]
+                        videos.append({
+                            "url":      url,
+                            "title":    caption,
+                            "views":    media.play_count or media.view_count or 0,
+                            "likes":    media.like_count or 0,
+                            "comments": media.comment_count or 0,
+                            "duration": media.video_duration or 0,
+                            "thumbnail": thumb,
+                        })
                 except Exception:
                     pass
 
             if not videos:
-                return jsonify({"error": f"No se encontraron Reels en @{username}. Verificá que el perfil tenga Reels públicos."}), 404
+                return jsonify({"error": f"No se encontraron Reels en @{username}. Verificá que el perfil sea público."}), 404
+
+            if sort_by == "viral":
+                videos.sort(key=lambda v: v["views"], reverse=True)
+            elif sort_by == "liked":
+                videos.sort(key=lambda v: v["likes"], reverse=True)
+            videos = videos[:amount]
 
             return jsonify({
                 "platform":    platform,
