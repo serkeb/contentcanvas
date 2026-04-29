@@ -64,8 +64,8 @@ def get_ig_client(ig_user: str, ig_pass: str):
             BadPassword, InvalidUser, TwoFactorRequired,
             ChallengeRequired, LoginRequired,
         )
-    except ImportError:
-        raise RuntimeError("instagrapi no está instalado. Contactá al administrador.")
+    except ImportError as e:
+        raise RuntimeError(f"instagrapi no está instalado correctamente: {e}")
 
     cl = Client()
     cl.delay_range = [2, 5]  # polite delay between requests
