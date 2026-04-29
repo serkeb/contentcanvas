@@ -160,9 +160,7 @@ export function isProfileUrl(url) {
   // TikTok: https://www.tiktok.com/@username — but NOT video URLs like @user/video/123
   if (/tiktok\.com\/@[\w.-]+/.test(url) && !/tiktok\.com\/@[\w.-]+\/video\//.test(url)) return 'tiktok'
 
-  // Instagram profile: instagram.com/username — but not posts, reels, explore, etc.
-  if (/instagram\.com\/[\w.-]+/.test(url) && !INSTAGRAM_NON_PROFILE.test(url)) return 'instagram'
-
+  // Instagram profiles are NOT supported for bulk scraping — individual reel links only
   return null
 }
 

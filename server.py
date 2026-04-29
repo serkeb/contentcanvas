@@ -360,10 +360,38 @@ def transcribe():
                             return jsonify({
                                 "transcript": transcript_text,
                                 "language": lang_match.group(1) if lang_match else "auto",
-                                "source": "YouTube Subtitles"
+                                "source": "YouTube Subtitles",
+                                "meta": meta,
                             })
                 except Exception as e:
                     print(f"Sin subtítulos: {e}")
+
+            # ── STEP 1b: Extract metadata (likes, views, date, description) ──
+            meta = {}
+            try:
+                meta_opts = {"quiet": True, "no_warnings": True, "skip_download": True}
+                with yt_dlp.YoutubeDL(meta_opts) as ydl_meta:
+                    meta_info = ydl_meta.extract_info(url, download=False)
+                    if meta_info:
+                        import datetime
+                        upload_ts = meta_info.get("timestamp")
+                        upload_date = meta_info.get("upload_date")  # YYYYMMDD string
+                        if upload_ts:
+                            meta["date"] = datetime.datetime.utcfromtimestamp(upload_ts).strftime("%Y-%m-%d %H:%M")
+                        elif upload_date and len(upload_date) == 8:
+                            meta["date"] = f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:]}"
+                        meta["views"]       = meta_info.get("view_count") or 0
+                        meta["likes"]       = meta_info.get("like_count") or 0
+                        meta["comments"]    = meta_info.get("comment_count") or 0
+                        meta["duration"]    = meta_info.get("duration") or 0
+                        meta["description"] = (meta_info.get("description") or "")[:500]
+                        meta["title"]       = meta_info.get("title") or ""
+                        thumb = meta_info.get("thumbnail")
+                        if not thumb and meta_info.get("thumbnails"):
+                            thumb = meta_info["thumbnails"][-1].get("url", "")
+                        meta["thumbnail"]   = thumb or ""
+            except Exception as e:
+                print(f"[meta] Could not extract metadata: {e}")
 
             # ── STEP 2: Download audio/video ─────────────────────────────────
             # YouTube: audio-only m4a streams exist (~128kbps, no ffmpeg needed)
@@ -429,6 +457,7 @@ def transcribe():
                     "transcript": response.text,
                     "language": getattr(response, "language", "desconocido"),
                     "source": "Whisper",
+                    "meta": meta,
                     "usage": {
                         "model": "whisper-1",
                         "audio_seconds": round(audio_seconds, 1) if audio_seconds else None,
@@ -467,6 +496,7 @@ def transcribe():
                 "transcript": " ".join(transcript_parts),
                 "language": detected_language,
                 "source": "Whisper (chunks)",
+                "meta": meta,
                 "usage": {
                     "model": "whisper-1",
                     "audio_seconds": round(total_audio_seconds, 1) if total_audio_seconds else None,

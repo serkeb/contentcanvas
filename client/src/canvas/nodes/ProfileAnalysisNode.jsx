@@ -592,7 +592,21 @@ export default function ProfileAnalysisNode({ id, data, selected }) {
         const item = initial[i]
         try {
           const res = await transcribeUrl(item.url)
-          initial[i] = { ...item, state: 'listo', transcript: res.transcript }
+          const m = res.meta || {}
+          initial[i] = {
+            ...item,
+            state: 'listo',
+            transcript:  res.transcript,
+            // Enrich with metadata from yt-dlp if available
+            views:       m.views    || item.views    || 0,
+            likes:       m.likes    || item.likes    || 0,
+            comments:    m.comments || item.comments || 0,
+            duration:    m.duration || item.duration || 0,
+            date:        m.date     || item.date     || '',
+            description: m.description || item.description || '',
+            title:       m.title    || item.title    || '',
+            thumbnail:   m.thumbnail || item.thumbnail || '',
+          }
         } catch (err) {
           initial[i] = { ...item, state: 'error', error: err.message }
         }
@@ -902,72 +916,29 @@ export default function ProfileAnalysisNode({ id, data, selected }) {
                 )}
               </div>
 
-              {/* Instagram Session ID */}
-              {platform === 'instagram' && (
-                <div style={{ width: '100%', maxWidth: 260 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
-                    <Lock size={9} color="#94a3b8" />
-                    <span style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      Sesión de Instagram
-                    </span>
+              {/* Instagram: no profile scraping — individual links only */}
+              {platform === 'instagram' ? (
+                <div style={{
+                  width: '100%', maxWidth: 260,
+                  background: '#fdf4ff', border: '1.5px solid #e9d5ff',
+                  borderRadius: 12, padding: '14px 16px', textAlign: 'center',
+                }}>
+                  <SiInstagram size={22} color="#c026d3" style={{ marginBottom: 8, opacity: 0.8 }} />
+                  <div style={{ fontSize: 11, fontWeight: 700, color: '#7e22ce', marginBottom: 6 }}>
+                    Instagram no soporta importación de perfiles
                   </div>
-
-                  {/* Warning */}
+                  <div style={{ fontSize: 10, color: '#9333ea', lineHeight: 1.6 }}>
+                    Instagram bloquea el scraping desde servidores cloud. Podés analizar Reels de Instagram pegando los links individuales directamente en el canvas.
+                  </div>
                   <div style={{
-                    background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 8,
-                    padding: '7px 10px', marginBottom: 8, display: 'flex', gap: 6, alignItems: 'flex-start',
+                    marginTop: 10, padding: '7px 10px',
+                    background: '#f3e8ff', borderRadius: 8,
+                    fontSize: 9, color: '#6b21a8', lineHeight: 1.5,
                   }}>
-                    <ShieldAlert size={12} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
-                    <span style={{ fontSize: 9, color: '#92400e', lineHeight: 1.5 }}>
-                      <strong>Usá una cuenta secundaria</strong> para evitar restricciones en tu cuenta de negocio.
-                    </span>
-                  </div>
-
-                  {/* How to get session ID */}
-                  <div style={{
-                    background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8,
-                    padding: '7px 10px', marginBottom: 8,
-                  }}>
-                    <div style={{ fontSize: 9, color: '#0369a1', lineHeight: 1.6, fontWeight: 600, marginBottom: 3 }}>
-                      ¿Cómo obtener el Session ID?
-                    </div>
-                    <ol style={{ fontSize: 9, color: '#0c4a6e', lineHeight: 1.7, margin: 0, paddingLeft: 14 }}>
-                      <li>Abrí instagram.com en Chrome</li>
-                      <li>F12 → Application → Cookies</li>
-                      <li>Buscá la cookie <strong>sessionid</strong></li>
-                      <li>Copiá el valor y pegalo abajo</li>
-                    </ol>
-                  </div>
-
-                  <div style={{ position: 'relative' }}>
-                    <input
-                      type={showSessionId ? 'text' : 'password'}
-                      placeholder="Pegá el sessionid aquí"
-                      value={igSessionId}
-                      onChange={e => { setIgSessionId(e.target.value); persist({ igSessionId: e.target.value }) }}
-                      style={{
-                        width: '100%', boxSizing: 'border-box',
-                        padding: '7px 32px 7px 10px', borderRadius: 8, fontSize: 10,
-                        border: `1.5px solid ${igSessionId ? '#86efac' : '#e2e8f0'}`,
-                        outline: 'none', background: '#f8fafc', fontFamily: 'monospace',
-                      }}
-                    />
-                    <button
-                      onClick={() => setShowSessionId(p => !p)}
-                      style={{
-                        position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                        background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#94a3b8',
-                      }}
-                    >
-                      {showSessionId ? <EyeOff size={13} /> : <Eye size={13} />}
-                    </button>
-                  </div>
-                  <div style={{ fontSize: 8, color: '#94a3b8', marginTop: 4 }}>
-                    Opcional para perfiles públicos. Requerido para privados. Expira ~90 días.
+                    💡 Arrastrá o pegá links de Reels en el canvas → se transcribe y analiza automáticamente
                   </div>
                 </div>
-              )}
-
+              ) : (
               <button
                 onClick={handleImport}
                 style={{
@@ -980,6 +951,7 @@ export default function ProfileAnalysisNode({ id, data, selected }) {
               >
                 📥 Importar {amount} videos
               </button>
+              )}
             </div>
           )}
 
