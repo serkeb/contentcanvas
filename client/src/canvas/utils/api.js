@@ -2,7 +2,7 @@ import { recordUsage } from './tokenUsage'
 import { loadApiKeys } from './storage'
 import { supportsReasoning } from './models'
 
-const BASE_URL = 'http://localhost:5000'
+const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 
 async function parseResponse(res, fallbackMsg) {
   const text = await res.text()
