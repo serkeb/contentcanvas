@@ -1,4 +1,75 @@
-import { saveApiKeyToSupabase, loadApiKeysFromSupabase } from '../../lib/supabaseApiKeys'
+// Supabase integration - inline functions to avoid import issues in Vercel
+import { createClient } from '@supabase/supabase-js'
+
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || localStorage.getItem('supabase_url') || ''
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || localStorage.getItem('supabase_anon_key') || ''
+const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+async function saveApiKeyToSupabase(provider, apiKey) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('Usuario no autenticado')
+
+    const { data: existing } = await supabase
+      .from('user_api_keys')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('provider', provider)
+      .single()
+
+    if (existing) {
+      const { error } = await supabase
+        .from('user_api_keys')
+        .update({
+          api_key_encrypted: btoa(apiKey),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existing.id)
+      if (error) throw error
+    } else {
+      const { error } = await supabase
+        .from('user_api_keys')
+        .insert({
+          user_id: user.id,
+          provider: provider,
+          api_key_encrypted: btoa(apiKey),
+          is_default: true
+        })
+      if (error) throw error
+    }
+    return true
+  } catch (error) {
+    console.error('Error guardando API key en Supabase:', error)
+    return false
+  }
+}
+
+async function loadApiKeysFromSupabase() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return {}
+
+    const { data, error } = await supabase
+      .from('user_api_keys')
+      .select('*')
+      .eq('user_id', user.id)
+
+    if (error) throw error
+
+    const apiKeys = {}
+    data.forEach(key => {
+      try {
+        apiKeys[key.provider] = atob(key.api_key_encrypted)
+      } catch (e) {
+        apiKeys[key.provider] = ''
+      }
+    })
+    return apiKeys
+  } catch (error) {
+    console.error('Error cargando API keys desde Supabase:', error)
+    return {}
+  }
+}
 
 const STORAGE_KEY = 'content-research-canvas-v1'
 const CONFIG_KEY = 'content-research-config-v1'
