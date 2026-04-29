@@ -855,105 +855,85 @@ def scrape_profile():
     username = username.lstrip("@")
 
     try:
-        # ── INSTAGRAM: instagrapi ─────────────────────────────────────────────
+        # ── INSTAGRAM: yt-dlp (same approach as TikTok, works for public profiles) ─
         if platform == "instagram":
-            if not ig_session_id:
-                return jsonify({
-                    "error": "Ingresá tu Session ID de Instagram para continuar.",
-                    "error_code": "IG_NO_CREDENTIALS",
-                }), 400
+            import yt_dlp
 
-            try:
-                cl = get_ig_client(ig_user, ig_session_id)
-            except RuntimeError as e:
-                # Clear cached client so next attempt re-authenticates
-                _ig_clients.pop(ig_user, None)
-                return jsonify({"error": str(e)}), 401
+            profile_url = f"https://www.instagram.com/{username}/reels/"
 
-            try:
-                user_info = cl.user_info_by_username(username)
-            except Exception as e:
-                err = str(e).lower()
-                if "not found" in err or "user_not_found" in err:
-                    return jsonify({"error": f"No se encontró el perfil @{username}."}), 404
-                return jsonify({"error": f"Error al obtener el perfil: {str(e)}"}), 400
-
-            profile_data = {
-                "avatar":    str(user_info.profile_pic_url or ""),
-                "name":      user_info.full_name or f"@{username}",
-                "username":  user_info.username or username,
-                "bio":       user_info.biography or "",
-                "followers": user_info.follower_count or 0,
-                "following": user_info.following_count or 0,
+            ydl_opts = {
+                "quiet": True,
+                "no_warnings": True,
+                "extract_flat": True,
+                "playlistend": fetch_amount,
+                "skip_download": True,
             }
 
-            # Fetch reels — try multiple instagrapi methods in order
-            pool = fetch_amount if sort_by in ("viral", "liked") else amount
-            videos = []
-            errors = []
-
-            def media_to_dict(media):
-                code = media.code or ""
-                url = f"https://www.instagram.com/reel/{code}/" if code else ""
-                thumb = str(media.thumbnail_url or "")
-                caption = (media.caption_text or "")[:120]
-                return {
-                    "url":       url,
-                    "title":     caption,
-                    "views":     getattr(media, "play_count", None) or getattr(media, "view_count", None) or 0,
-                    "likes":     media.like_count or 0,
-                    "comments":  media.comment_count or 0,
-                    "duration":  getattr(media, "video_duration", None) or 0,
-                    "thumbnail": thumb,
+            # If session ID provided, pass it as a cookie so yt-dlp is authenticated
+            if ig_session_id:
+                ydl_opts["http_headers"] = {
+                    "Cookie": f"sessionid={ig_session_id}",
                 }
 
-            # Method 1: user_clips (reels specifically)
-            try:
-                clips = cl.user_clips(user_info.pk, amount=pool)
-                print(f"[IG] user_clips returned {len(clips)} items")
-                videos = [media_to_dict(m) for m in clips if m.code]
-            except Exception as e:
-                errors.append(f"user_clips: {e}")
-                print(f"[IG] user_clips failed: {e}")
-
-            # Method 2: user_medias filtered to videos
-            if not videos:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 try:
-                    medias = cl.user_medias(user_info.pk, amount=pool)
-                    print(f"[IG] user_medias returned {len(medias)} items")
-                    videos = [media_to_dict(m) for m in medias if m.media_type == 2 and m.code]
-                except Exception as e:
-                    errors.append(f"user_medias: {e}")
-                    print(f"[IG] user_medias failed: {e}")
+                    info = ydl.extract_info(profile_url, download=False)
+                except yt_dlp.utils.DownloadError as e:
+                    err = str(e).lower()
+                    if "private" in err or "not found" in err or "does not exist" in err:
+                        return jsonify({"error": f"El perfil @{username} es privado o no existe."}), 404
+                    if "login" in err or "checkpoint" in err:
+                        return jsonify({"error": "Instagram requiere autenticación para este perfil. Verificá el Session ID."}), 401
+                    return jsonify({"error": f"Error al acceder al perfil: {str(e)}"}), 400
 
-            # Method 3: user_medias_gql (GraphQL endpoint — works better for public profiles)
-            if not videos:
-                try:
-                    medias = cl.user_medias_gql(user_info.pk, amount=pool)
-                    print(f"[IG] user_medias_gql returned {len(medias)} items")
-                    videos = [media_to_dict(m) for m in medias if m.media_type == 2 and m.code]
-                except Exception as e:
-                    errors.append(f"user_medias_gql: {e}")
-                    print(f"[IG] user_medias_gql failed: {e}")
+                if not info:
+                    return jsonify({"error": f"No se pudo encontrar el perfil @{username}"}), 404
 
-            if not videos:
-                err_detail = " | ".join(errors)
-                return jsonify({"error": f"No se encontraron Reels en @{username}. ({err_detail})"}), 404
+                profile_data = {
+                    "avatar":    info.get("thumbnail") or "",
+                    "name":      info.get("uploader") or info.get("channel") or f"@{username}",
+                    "username":  info.get("uploader_id") or username,
+                    "bio":       info.get("description") or "",
+                    "followers": info.get("channel_follower_count") or 0,
+                    "following": 0,
+                }
 
-            if sort_by == "viral":
-                videos.sort(key=lambda v: v["views"], reverse=True)
-            elif sort_by == "liked":
-                videos.sort(key=lambda v: v["likes"], reverse=True)
-            videos = videos[:amount]
+                videos = []
+                for entry in (info.get("entries") or []):
+                    video_url = entry.get("webpage_url") or entry.get("url")
+                    if not video_url:
+                        continue
+                    thumbnail = entry.get("thumbnail")
+                    if not thumbnail and entry.get("thumbnails"):
+                        thumbnail = entry["thumbnails"][-1].get("url")
+                    videos.append({
+                        "url":       video_url,
+                        "title":     (entry.get("title") or "")[:120],
+                        "description": entry.get("description") or "",
+                        "views":     entry.get("view_count") or entry.get("views") or 0,
+                        "likes":     entry.get("like_count") or entry.get("likes") or 0,
+                        "comments":  entry.get("comment_count") or 0,
+                        "duration":  entry.get("duration") or 0,
+                        "thumbnail": thumbnail or "",
+                    })
 
-            return jsonify({
-                "platform":    platform,
-                "username":    username,
-                "profile_url": f"https://www.instagram.com/{username}/",
-                "profile":     profile_data,
-                "video_count": len(videos),
-                "videos":      videos,
-            })
+                if not videos:
+                    return jsonify({"error": f"No se encontraron Reels en @{username}. Verificá que el perfil sea público y tenga Reels."}), 404
+
+                if sort_by == "viral":
+                    videos.sort(key=lambda v: v["views"], reverse=True)
+                elif sort_by == "liked":
+                    videos.sort(key=lambda v: v["likes"], reverse=True)
+                videos = videos[:amount]
+
+                return jsonify({
+                    "platform":    platform,
+                    "username":    username,
+                    "profile_url": f"https://www.instagram.com/{username}/",
+                    "profile":     profile_data,
+                    "video_count": len(videos),
+                    "videos":      videos,
+                })
 
         # ── TIKTOK: yt-dlp ───────────────────────────────────────────────────
         elif platform == "tiktok":

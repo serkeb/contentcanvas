@@ -963,22 +963,18 @@ export default function ProfileAnalysisNode({ id, data, selected }) {
                     </button>
                   </div>
                   <div style={{ fontSize: 8, color: '#94a3b8', marginTop: 4 }}>
-                    Expira cada ~90 días. Se guarda en este board.
+                    Opcional para perfiles públicos. Requerido para privados. Expira ~90 días.
                   </div>
                 </div>
               )}
 
               <button
                 onClick={handleImport}
-                disabled={platform === 'instagram' && !igSessionId}
                 style={{
-                  background: (platform === 'instagram' && !igSessionId) ? '#e2e8f0' : ACCENT,
-                  border: 'none', borderRadius: 10,
-                  color: (platform === 'instagram' && !igSessionId) ? '#94a3b8' : '#fff',
-                  fontSize: 11, fontWeight: 700,
-                  cursor: (platform === 'instagram' && !igSessionId) ? 'not-allowed' : 'pointer',
-                  padding: '10px 28px',
-                  boxShadow: (platform === 'instagram' && !igSessionId) ? 'none' : `0 4px 14px ${ACCENT}40`,
+                  background: ACCENT, border: 'none', borderRadius: 10,
+                  color: '#fff', fontSize: 11, fontWeight: 700,
+                  cursor: 'pointer', padding: '10px 28px',
+                  boxShadow: `0 4px 14px ${ACCENT}40`,
                   marginTop: 4, transition: 'all 0.15s',
                 }}
               >
