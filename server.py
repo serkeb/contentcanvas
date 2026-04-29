@@ -61,7 +61,7 @@ def get_ig_client(ig_user: str, ig_pass: str):
     try:
         from instagrapi import Client
         from instagrapi.exceptions import (
-            BadPassword, InvalidUser, TwoFactorRequired,
+            BadPassword, UserNotFound, TwoFactorRequired,
             ChallengeRequired, LoginRequired,
         )
     except ImportError as e:
@@ -74,7 +74,7 @@ def get_ig_client(ig_user: str, ig_pass: str):
         cl.login(ig_user, ig_pass)
     except BadPassword:
         raise RuntimeError("Contraseña incorrecta. Verificá tus credenciales de Instagram.")
-    except InvalidUser:
+    except UserNotFound:
         raise RuntimeError(f"La cuenta @{ig_user} no existe en Instagram.")
     except TwoFactorRequired:
         raise RuntimeError(
