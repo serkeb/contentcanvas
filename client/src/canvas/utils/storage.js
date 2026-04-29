@@ -1,3 +1,5 @@
+import { saveApiKeyToSupabase, loadApiKeysFromSupabase } from '../../lib/supabaseApiKeys.js'
+
 const STORAGE_KEY = 'content-research-canvas-v1'
 const CONFIG_KEY = 'content-research-config-v1'
 const BRANDVOICE_KEY = 'content-research-brandvoices-v1'
@@ -79,7 +81,6 @@ export async function saveApiKeys(keys) {
 
     // Intentar guardar en Supabase (persistencia en la nube)
     try {
-      const { saveApiKeyToSupabase } = await import('../../lib/supabaseApiKeys')
       const providers = ['openai', 'anthropic', 'gemini', 'nano_banana']
 
       for (const provider of providers) {
@@ -123,7 +124,6 @@ export async function loadApiKeysAsync() {
   try {
     // Primero intentar cargar desde Supabase
     try {
-      const { loadApiKeysFromSupabase } = await import('../../lib/supabaseApiKeys')
       const supabaseKeys = await loadApiKeysFromSupabase()
 
       // Si hay keys en Supabase, usarlas
