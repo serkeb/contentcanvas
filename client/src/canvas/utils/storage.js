@@ -1,4 +1,4 @@
-import { saveApiKeyToSupabase, loadApiKeysFromSupabase } from '../../lib/supabaseApiKeys.js'
+import { saveApiKeyToSupabase, loadApiKeysFromSupabase } from '../../lib/supabaseApiKeys'
 
 const STORAGE_KEY = 'content-research-canvas-v1'
 const CONFIG_KEY = 'content-research-config-v1'
