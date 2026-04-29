@@ -48,11 +48,16 @@ CORS(app,
 # ── Instagram: instagrapi client cache (keyed by username) ────────────────────
 _ig_clients = {}  # { ig_username: instagrapi.Client }
 
-def get_ig_client(ig_user: str, ig_pass: str):
+def get_ig_client(ig_user: str, ig_session_id: str):
     """
-    Returns an authenticated instagrapi Client for the given credentials.
+    Returns an authenticated instagrapi Client using a session ID cookie.
     Reuses cached client if already logged in for this username.
     Raises RuntimeError with a user-friendly message on failure.
+
+    Why session ID instead of user/password:
+    - Instagram blocks login() calls from datacenter IPs (Render/AWS/etc.)
+    - login_by_sessionid() skips that check entirely — no IP block
+    - Session ID is obtained from browser DevTools (lasts ~90 days)
     """
     global _ig_clients
     if ig_user in _ig_clients:
@@ -60,47 +65,23 @@ def get_ig_client(ig_user: str, ig_pass: str):
 
     try:
         from instagrapi import Client
-        from instagrapi.exceptions import (
-            BadPassword, UserNotFound, TwoFactorRequired,
-            ChallengeRequired, LoginRequired,
-        )
     except ImportError as e:
         raise RuntimeError(f"instagrapi no está instalado correctamente: {e}")
 
     cl = Client()
-    cl.delay_range = [2, 5]  # polite delay between requests
+    cl.delay_range = [1, 3]
 
     try:
-        cl.login(ig_user, ig_pass)
-    except BadPassword:
-        raise RuntimeError("Contraseña incorrecta. Verificá tus credenciales de Instagram.")
-    except UserNotFound:
-        raise RuntimeError(f"La cuenta @{ig_user} no existe en Instagram.")
-    except TwoFactorRequired:
-        raise RuntimeError(
-            "Tu cuenta tiene verificación en dos pasos activa. "
-            "Usá una cuenta secundaria sin 2FA para el scraping."
-        )
-    except ChallengeRequired as e:
-        raise RuntimeError(
-            "Instagram bloqueó el login desde este servidor (IP de datacenter). "
-            "Esto es normal — Instagram desconfía de IPs cloud. "
-            f"Solución: andá a instagram.com desde tu browser, iniciá sesión con esta cuenta dummy y completá el challenge de seguridad que te mande. Luego reintentá. (Detalle: {str(e)})"
-        )
-    except LoginRequired:
-        raise RuntimeError("No se pudo iniciar sesión. Verificá usuario y contraseña.")
+        cl.login_by_sessionid(ig_session_id)
     except Exception as e:
         err_str = str(e)
-        print(f"[Instagram login error] {type(e).__name__}: {err_str}")
-        # Instagram often throws generic exceptions for IP blocks / checkpoints
-        if "checkpoint" in err_str.lower() or "challenge" in err_str.lower():
+        print(f"[Instagram sessionid error] {type(e).__name__}: {err_str}")
+        if "login" in err_str.lower() or "session" in err_str.lower() or "401" in err_str:
             raise RuntimeError(
-                "Instagram pidió verificación de seguridad (checkpoint). "
-                "Abrí instagram.com en tu browser, iniciá sesión con la cuenta dummy y completá la verificación. Luego reintentá."
+                "Session ID inválido o expirado. "
+                "Copialo de nuevo desde DevTools → Application → Cookies → sessionid."
             )
-        if "few minutes" in err_str.lower() or "wait" in err_str.lower() or "429" in err_str:
-            raise RuntimeError("Instagram está limitando requests desde este servidor. Esperá 5-10 minutos y reintentá.")
-        raise RuntimeError(f"Error de Instagram ({type(e).__name__}): {err_str}")
+        raise RuntimeError(f"Error al conectar con Instagram: {err_str}")
 
     _ig_clients[ig_user] = cl
     return cl
@@ -853,8 +834,8 @@ def scrape_profile():
     username = data.get("username", "").strip()
     amount   = int(data.get("amount", 10))
     sort_by  = data.get("sort_by", "recent")   # "recent" | "viral" | "liked"
-    ig_user  = data.get("ig_user", "").strip()
-    ig_pass  = data.get("ig_pass", "").strip()
+    ig_user       = data.get("ig_user", "").strip()
+    ig_session_id = data.get("ig_session_id", "").strip()
 
     # For viral/liked we need a large pool to sort from — fetching only
     # `amount` recents would miss older high-performing videos entirely.
@@ -876,14 +857,14 @@ def scrape_profile():
     try:
         # ── INSTAGRAM: instagrapi ─────────────────────────────────────────────
         if platform == "instagram":
-            if not ig_user or not ig_pass:
+            if not ig_session_id:
                 return jsonify({
-                    "error": "Ingresá tu usuario y contraseña de Instagram para continuar.",
+                    "error": "Ingresá tu Session ID de Instagram para continuar.",
                     "error_code": "IG_NO_CREDENTIALS",
                 }), 400
 
             try:
-                cl = get_ig_client(ig_user, ig_pass)
+                cl = get_ig_client(ig_user, ig_session_id)
             except RuntimeError as e:
                 # Clear cached client so next attempt re-authenticates
                 _ig_clients.pop(ig_user, None)

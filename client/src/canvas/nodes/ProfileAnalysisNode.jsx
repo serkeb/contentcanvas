@@ -485,9 +485,9 @@ export default function ProfileAnalysisNode({ id, data, selected }) {
   const [customPrompt, setCustomPrompt]   = useState(data.customPrompt || '')
   const [showPromptEditor, setShowPromptEditor] = useState(false)
   // Instagram credentials — stored in node data (persisted in Supabase board)
-  const [igUser, setIgUser] = useState(data.igUser || '')
-  const [igPass, setIgPass] = useState(data.igPass || '')
-  const [showIgPass, setShowIgPass] = useState(false)
+  const [igUser, setIgUser]           = useState(data.igUser || '')
+  const [igSessionId, setIgSessionId] = useState(data.igSessionId || '')
+  const [showSessionId, setShowSessionId] = useState(false)
 
   // ── Data shortcuts ──
   const platform  = data.platform  || ''
@@ -558,7 +558,7 @@ export default function ProfileAnalysisNode({ id, data, selected }) {
     }, isSorted ? 2800 : 1500)
 
     try {
-      const result = await scrapeProfile(platform, username, amount, sortBy, igUser, igPass)
+      const result = await scrapeProfile(platform, username, amount, sortBy, igUser, igSessionId)
       clearInterval(progressInterval)
       persist({ progress: { current: fetchPool, total: fetchPool, message: `✓ ${result.videos?.length || amount} videos encontrados` } })
 
@@ -902,13 +902,13 @@ export default function ProfileAnalysisNode({ id, data, selected }) {
                 )}
               </div>
 
-              {/* Instagram credentials */}
+              {/* Instagram Session ID */}
               {platform === 'instagram' && (
                 <div style={{ width: '100%', maxWidth: 260 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 6 }}>
                     <Lock size={9} color="#94a3b8" />
                     <span style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                      Cuenta de Instagram
+                      Sesión de Instagram
                     </span>
                   </div>
 
@@ -919,57 +919,66 @@ export default function ProfileAnalysisNode({ id, data, selected }) {
                   }}>
                     <ShieldAlert size={12} color="#d97706" style={{ flexShrink: 0, marginTop: 1 }} />
                     <span style={{ fontSize: 9, color: '#92400e', lineHeight: 1.5 }}>
-                      <strong>Recomendamos usar una cuenta secundaria</strong> (dummy account) para evitar restricciones en tu cuenta personal o de negocio.
+                      <strong>Usá una cuenta secundaria</strong> para evitar restricciones en tu cuenta de negocio.
                     </span>
                   </div>
 
-                  <input
-                    type="text"
-                    placeholder="Usuario (sin @)"
-                    value={igUser}
-                    onChange={e => { setIgUser(e.target.value); persist({ igUser: e.target.value }) }}
-                    style={{
-                      width: '100%', boxSizing: 'border-box', marginBottom: 6,
-                      padding: '7px 10px', borderRadius: 8, fontSize: 11,
-                      border: '1.5px solid #e2e8f0', outline: 'none', background: '#f8fafc',
-                    }}
-                  />
+                  {/* How to get session ID */}
+                  <div style={{
+                    background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8,
+                    padding: '7px 10px', marginBottom: 8,
+                  }}>
+                    <div style={{ fontSize: 9, color: '#0369a1', lineHeight: 1.6, fontWeight: 600, marginBottom: 3 }}>
+                      ¿Cómo obtener el Session ID?
+                    </div>
+                    <ol style={{ fontSize: 9, color: '#0c4a6e', lineHeight: 1.7, margin: 0, paddingLeft: 14 }}>
+                      <li>Abrí instagram.com en Chrome</li>
+                      <li>F12 → Application → Cookies</li>
+                      <li>Buscá la cookie <strong>sessionid</strong></li>
+                      <li>Copiá el valor y pegalo abajo</li>
+                    </ol>
+                  </div>
+
                   <div style={{ position: 'relative' }}>
                     <input
-                      type={showIgPass ? 'text' : 'password'}
-                      placeholder="Contraseña"
-                      value={igPass}
-                      onChange={e => { setIgPass(e.target.value); persist({ igPass: e.target.value }) }}
+                      type={showSessionId ? 'text' : 'password'}
+                      placeholder="Pegá el sessionid aquí"
+                      value={igSessionId}
+                      onChange={e => { setIgSessionId(e.target.value); persist({ igSessionId: e.target.value }) }}
                       style={{
                         width: '100%', boxSizing: 'border-box',
-                        padding: '7px 32px 7px 10px', borderRadius: 8, fontSize: 11,
-                        border: '1.5px solid #e2e8f0', outline: 'none', background: '#f8fafc',
+                        padding: '7px 32px 7px 10px', borderRadius: 8, fontSize: 10,
+                        border: `1.5px solid ${igSessionId ? '#86efac' : '#e2e8f0'}`,
+                        outline: 'none', background: '#f8fafc', fontFamily: 'monospace',
                       }}
                     />
                     <button
-                      onClick={() => setShowIgPass(p => !p)}
+                      onClick={() => setShowSessionId(p => !p)}
                       style={{
                         position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
                         background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: '#94a3b8',
                       }}
                     >
-                      {showIgPass ? <EyeOff size={13} /> : <Eye size={13} />}
+                      {showSessionId ? <EyeOff size={13} /> : <Eye size={13} />}
                     </button>
+                  </div>
+                  <div style={{ fontSize: 8, color: '#94a3b8', marginTop: 4 }}>
+                    Expira cada ~90 días. Se guarda en este board.
                   </div>
                 </div>
               )}
 
               <button
                 onClick={handleImport}
-                disabled={platform === 'instagram' && (!igUser || !igPass)}
+                disabled={platform === 'instagram' && !igSessionId}
                 style={{
-                  background: (platform === 'instagram' && (!igUser || !igPass)) ? '#e2e8f0' : ACCENT,
+                  background: (platform === 'instagram' && !igSessionId) ? '#e2e8f0' : ACCENT,
                   border: 'none', borderRadius: 10,
-                  color: (platform === 'instagram' && (!igUser || !igPass)) ? '#94a3b8' : '#fff',
+                  color: (platform === 'instagram' && !igSessionId) ? '#94a3b8' : '#fff',
                   fontSize: 11, fontWeight: 700,
-                  cursor: (platform === 'instagram' && (!igUser || !igPass)) ? 'not-allowed' : 'pointer',
+                  cursor: (platform === 'instagram' && !igSessionId) ? 'not-allowed' : 'pointer',
                   padding: '10px 28px',
-                  boxShadow: (platform === 'instagram' && (!igUser || !igPass)) ? 'none' : `0 4px 14px ${ACCENT}40`,
+                  boxShadow: (platform === 'instagram' && !igSessionId) ? 'none' : `0 4px 14px ${ACCENT}40`,
                   marginTop: 4, transition: 'all 0.15s',
                 }}
               >

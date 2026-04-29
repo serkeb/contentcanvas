@@ -125,13 +125,13 @@ export function isVideoUrl(url) {
   return detectPlatform(url) !== null
 }
 
-export async function scrapeProfile(platform, username, amount = 10, sortBy = 'recent', igUser = '', igPass = '') {
+export async function scrapeProfile(platform, username, amount = 10, sortBy = 'recent', igUser = '', igSessionId = '') {
   let res
   try {
     res = await fetch(`${BASE_URL}/scrape-profile`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ platform, username, amount, sort_by: sortBy, ig_user: igUser, ig_pass: igPass })
+      body: JSON.stringify({ platform, username, amount, sort_by: sortBy, ig_user: igUser, ig_session_id: igSessionId })
     })
   } catch {
     throw new Error('No se pudo conectar con el backend en localhost:5000. Corré: python3 server.py')
