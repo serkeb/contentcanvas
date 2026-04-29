@@ -34,10 +34,16 @@ if sys.platform == 'win32':
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app, origins=[
-    "http://localhost:5173",
-    "https://contentcanvass.vercel.app",
-])
+CORS(app,
+     origins=[
+         "http://localhost:5173",
+         "http://localhost:3000",
+         "https://contentcanvass.vercel.app",
+     ],
+     supports_credentials=True,
+     allow_headers=["Content-Type", "Authorization"],
+     methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+)
 
 # ── Instagram: session usando sessionid de .env ───────────────────────────────
 _ig_session = None
