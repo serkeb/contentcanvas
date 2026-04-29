@@ -887,51 +887,58 @@ def scrape_profile():
                 "following": user_info.following_count or 0,
             }
 
-            # Fetch reels — instagrapi clips endpoint, falls back to user_medias
+            # Fetch reels — try multiple instagrapi methods in order
             pool = fetch_amount if sort_by in ("viral", "liked") else amount
             videos = []
+            errors = []
+
+            def media_to_dict(media):
+                code = media.code or ""
+                url = f"https://www.instagram.com/reel/{code}/" if code else ""
+                thumb = str(media.thumbnail_url or "")
+                caption = (media.caption_text or "")[:120]
+                return {
+                    "url":       url,
+                    "title":     caption,
+                    "views":     getattr(media, "play_count", None) or getattr(media, "view_count", None) or 0,
+                    "likes":     media.like_count or 0,
+                    "comments":  media.comment_count or 0,
+                    "duration":  getattr(media, "video_duration", None) or 0,
+                    "thumbnail": thumb,
+                }
+
+            # Method 1: user_clips (reels specifically)
             try:
                 clips = cl.user_clips(user_info.pk, amount=pool)
-                for media in clips:
-                    url = f"https://www.instagram.com/reel/{media.code}/"
-                    thumb = str(media.thumbnail_url or "")
-                    caption = (media.caption_text or "")[:120]
-                    videos.append({
-                        "url":      url,
-                        "title":    caption,
-                        "views":    media.play_count or media.view_count or 0,
-                        "likes":    media.like_count or 0,
-                        "comments": media.comment_count or 0,
-                        "duration": media.video_duration or 0,
-                        "thumbnail": thumb,
-                    })
-            except Exception:
-                pass
+                print(f"[IG] user_clips returned {len(clips)} items")
+                videos = [media_to_dict(m) for m in clips if m.code]
+            except Exception as e:
+                errors.append(f"user_clips: {e}")
+                print(f"[IG] user_clips failed: {e}")
 
-            # Fallback: general user medias (videos only)
+            # Method 2: user_medias filtered to videos
             if not videos:
                 try:
                     medias = cl.user_medias(user_info.pk, amount=pool)
-                    for media in medias:
-                        if media.media_type != 2:  # 2 = video/reel
-                            continue
-                        url = f"https://www.instagram.com/p/{media.code}/"
-                        thumb = str(media.thumbnail_url or "")
-                        caption = (media.caption_text or "")[:120]
-                        videos.append({
-                            "url":      url,
-                            "title":    caption,
-                            "views":    media.play_count or media.view_count or 0,
-                            "likes":    media.like_count or 0,
-                            "comments": media.comment_count or 0,
-                            "duration": media.video_duration or 0,
-                            "thumbnail": thumb,
-                        })
-                except Exception:
-                    pass
+                    print(f"[IG] user_medias returned {len(medias)} items")
+                    videos = [media_to_dict(m) for m in medias if m.media_type == 2 and m.code]
+                except Exception as e:
+                    errors.append(f"user_medias: {e}")
+                    print(f"[IG] user_medias failed: {e}")
+
+            # Method 3: user_medias_gql (GraphQL endpoint — works better for public profiles)
+            if not videos:
+                try:
+                    medias = cl.user_medias_gql(user_info.pk, amount=pool)
+                    print(f"[IG] user_medias_gql returned {len(medias)} items")
+                    videos = [media_to_dict(m) for m in medias if m.media_type == 2 and m.code]
+                except Exception as e:
+                    errors.append(f"user_medias_gql: {e}")
+                    print(f"[IG] user_medias_gql failed: {e}")
 
             if not videos:
-                return jsonify({"error": f"No se encontraron Reels en @{username}. Verificá que el perfil sea público."}), 404
+                err_detail = " | ".join(errors)
+                return jsonify({"error": f"No se encontraron Reels en @{username}. ({err_detail})"}), 404
 
             if sort_by == "viral":
                 videos.sort(key=lambda v: v["views"], reverse=True)
