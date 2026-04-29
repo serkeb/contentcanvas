@@ -81,15 +81,26 @@ def get_ig_client(ig_user: str, ig_pass: str):
             "Tu cuenta tiene verificación en dos pasos activa. "
             "Usá una cuenta secundaria sin 2FA para el scraping."
         )
-    except ChallengeRequired:
+    except ChallengeRequired as e:
         raise RuntimeError(
-            "Instagram detectó actividad inusual y pidió verificación. "
-            "Intentá con otra cuenta o esperá unos minutos."
+            "Instagram bloqueó el login desde este servidor (IP de datacenter). "
+            "Esto es normal — Instagram desconfía de IPs cloud. "
+            f"Solución: andá a instagram.com desde tu browser, iniciá sesión con esta cuenta dummy y completá el challenge de seguridad que te mande. Luego reintentá. (Detalle: {str(e)})"
         )
     except LoginRequired:
         raise RuntimeError("No se pudo iniciar sesión. Verificá usuario y contraseña.")
     except Exception as e:
-        raise RuntimeError(f"Error al conectar con Instagram: {str(e)}")
+        err_str = str(e)
+        print(f"[Instagram login error] {type(e).__name__}: {err_str}")
+        # Instagram often throws generic exceptions for IP blocks / checkpoints
+        if "checkpoint" in err_str.lower() or "challenge" in err_str.lower():
+            raise RuntimeError(
+                "Instagram pidió verificación de seguridad (checkpoint). "
+                "Abrí instagram.com en tu browser, iniciá sesión con la cuenta dummy y completá la verificación. Luego reintentá."
+            )
+        if "few minutes" in err_str.lower() or "wait" in err_str.lower() or "429" in err_str:
+            raise RuntimeError("Instagram está limitando requests desde este servidor. Esperá 5-10 minutos y reintentá.")
+        raise RuntimeError(f"Error de Instagram ({type(e).__name__}): {err_str}")
 
     _ig_clients[ig_user] = cl
     return cl
