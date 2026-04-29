@@ -42,7 +42,11 @@
       "Bash(curl -s \"http://localhost:5173/src/index.css\")",
       "Bash(grep *)",
       "mcp__supabase__get_advisors",
-      "Bash(git init *)"
+      "Bash(git init *)",
+      "Bash(git config *)",
+      "Bash(git remote *)",
+      "Bash(git branch *)",
+      "Bash(git push *)"
     ]
   },
   "enableAllProjectMcpServers": true,
