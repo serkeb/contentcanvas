@@ -520,10 +520,43 @@ export default function ProfileAnalysisNode({ id, data, selected }) {
   // ── Import + Transcribe ──────────────────────────────────────────────────────
 
   async function handleImport() {
-    persist({ state: 'fetching', error: null, progress: { current: 0, total: amount, message: 'Obteniendo perfil…' } })
+    const isSorted = sortBy === 'viral' || sortBy === 'liked'
+    const fetchPool = isSorted ? Math.max(150, amount * 10) : amount
+    persist({
+      state: 'fetching', error: null,
+      progress: { current: 0, total: fetchPool, message: 'Conectando con el perfil…' }
+    })
+
+    // Animated progress messages while waiting for the backend
+    const sortLabel = sortBy === 'viral' ? 'reproducciones' : 'likes'
+    const messages = isSorted
+      ? [
+          { pct: 0.05, msg: `Obteniendo perfil…` },
+          { pct: 0.15, msg: `Descargando lista de videos…` },
+          { pct: 0.40, msg: `Analizando ${fetchPool} videos para encontrar los más virales…` },
+          { pct: 0.65, msg: `Ordenando por ${sortLabel}…` },
+          { pct: 0.85, msg: `Preparando top ${amount}…` },
+        ]
+      : [
+          { pct: 0.1,  msg: `Obteniendo perfil…` },
+          { pct: 0.5,  msg: `Descargando ${amount} videos recientes…` },
+          { pct: 0.85, msg: `Preparando resultados…` },
+        ]
+
+    let msgIdx = 0
+    const progressInterval = setInterval(() => {
+      if (msgIdx >= messages.length) return
+      const { pct, msg } = messages[msgIdx++]
+      persist({
+        state: 'fetching',
+        progress: { current: Math.round(fetchPool * pct), total: fetchPool, message: msg }
+      })
+    }, isSorted ? 2800 : 1500)
 
     try {
       const result = await scrapeProfile(platform, username, amount, sortBy)
+      clearInterval(progressInterval)
+      persist({ progress: { current: fetchPool, total: fetchPool, message: `✓ ${result.videos?.length || amount} videos encontrados` } })
 
       // Build initial video items
       const initial = result.videos.map((v, i) => ({
@@ -580,6 +613,7 @@ export default function ProfileAnalysisNode({ id, data, selected }) {
       })
 
     } catch (err) {
+      clearInterval(progressInterval)
       persist({ state: 'error', error: err.message })
     }
   }
@@ -859,7 +893,7 @@ export default function ProfileAnalysisNode({ id, data, selected }) {
                 </div>
                 {sortBy !== 'recent' && (
                   <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 6, lineHeight: 1.4 }}>
-                    💡 Se obtienen {amount} videos y se ordenan por {sortBy === 'viral' ? 'reproducciones' : 'likes'}.
+                    💡 Analiza hasta {Math.max(150, amount * 10)} videos del perfil y devuelve el top {amount} por {sortBy === 'viral' ? 'reproducciones' : 'likes'}. Puede tardar ~30s.
                   </div>
                 )}
               </div>
