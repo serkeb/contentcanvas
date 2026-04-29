@@ -859,7 +859,7 @@ def scrape_profile():
         if platform == "instagram":
             import yt_dlp
 
-            profile_url = f"https://www.instagram.com/{username}/reels/"
+            profile_url = f"https://www.instagram.com/{username}/"
 
             ydl_opts = {
                 "quiet": True,
@@ -867,13 +867,15 @@ def scrape_profile():
                 "extract_flat": True,
                 "playlistend": fetch_amount,
                 "skip_download": True,
+                "http_headers": {
+                    "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1",
+                    "Accept-Language": "en-US,en;q=0.9",
+                },
             }
 
-            # If session ID provided, pass it as a cookie so yt-dlp is authenticated
+            # Session ID makes private profiles accessible and reduces blocks
             if ig_session_id:
-                ydl_opts["http_headers"] = {
-                    "Cookie": f"sessionid={ig_session_id}",
-                }
+                ydl_opts["http_headers"]["Cookie"] = f"sessionid={ig_session_id}; ds_user_id={ig_user}"
 
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 try:
